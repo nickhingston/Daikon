@@ -20,7 +20,28 @@
             console.log("");
             var data = new DataView(buf);
             daikon.Parser.verbose = true;
-            daikon.Series.parseImage(data);
+            var image = daikon.Series.parseImage(data);
+            if (image === null) {
+                console.error(daikon.Series.parserError);
+            } else if (image.hasPixelData()) {
+                var pixelData = image.getInterpretedData(true, false, 0);
+                var canvas = document.getElementById('canvas');
+                var ctx = canvas.getContext('2d');
+                var imageData = ctx.createImageData(image.getCols(), image.getRows())
+                var pos = 0;
+                // assume greyscale ATM...
+                for (var i = 0; i < pixelData.length; i++) {
+                    var grey = pixelData[i];
+                    imageData.data[pos++] = Math.max(0, Math.min(255, grey));
+                    imageData.data[pos++] = Math.max(0, Math.min(255, grey));
+                    imageData.data[pos++] = Math.max(0, Math.min(255, grey));
+                    imageData.data[pos++] = 255; // opaque alpha
+                }
+                imageData.data = pixelData;
+                ctx.fillStyle = "black"; // this is default anyway
+                ctx.fillRect(0, 0, 1024, 1024);
+                ctx.putImageData(imageData, 0, 0, 0, 0, image.getCols(), image.getRows());
+            }
         }
 
         function makeSlice(file, start, length) {
@@ -105,7 +126,7 @@
 
     document.getElementById('file').addEventListener('change', handleFileSelect, false);
 </script>
-
+    <canvas id='canvas' width="1024" height="1024" style="position:relative; width:1024px; height:1024px;"></canvas>
 </body>
 
 </html>
