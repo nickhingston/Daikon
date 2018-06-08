@@ -3,8 +3,9 @@
 <!-- Test: Typical fullscreen usage; autoload an image and overlay. -->
 
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 
     <script type="text/javascript" src="../build/daikon.js"></script>
 
@@ -32,12 +33,12 @@
                 if (image.getDataType() === daikon.Image.BYTE_TYPE_RGB) {
                     const nSamples = image.getNumberOfSamplesPerPixel();
                     if (image.getPlanarConfig() && nSamples === 3) {
-                            // planar config 1 = RRR...GGG...BBB
-                        const length = pixelData.length/3;
+                        // planar config 1 = RRR...GGG...BBB
+                        const length = pixelData.length / 3;
                         for (var i = 0; i < length; i += 1) {
                             const r = pixelData[i];
                             const g = pixelData[i + length];
-                            const b = pixelData[i + length*2];
+                            const b = pixelData[i + length * 2];
                             imageData.data[pos++] = r;
                             imageData.data[pos++] = g;
                             imageData.data[pos++] = b;
@@ -45,11 +46,11 @@
                         }
                     }
                     else {
-                            // planar config 0 = RGBRGBRGB...
+                        // planar config 0 = RGBRGBRGB...
                         for (var i = 0; i < pixelData.length; i += 3) {
                             const r = pixelData[i];
-                            const g = pixelData[i+1];
-                            const b = pixelData[i+2];
+                            const g = pixelData[i + 1];
+                            const b = pixelData[i + 2];
                             imageData.data[pos++] = r;
                             imageData.data[pos++] = g;
                             imageData.data[pos++] = b;
@@ -59,8 +60,13 @@
                 }
                 else {
                     // greyscale...
+
+                    // calculate bit shift for colour depths > 8bit greyscale
+                    const storedBits = image.getBitsStored();
+                    const bitShift = (storedBits % 8) + ((Math.trunc(storedBits/8) - 1) * 8);
+
                     for (var i = 0; i < pixelData.length; i++) {
-                        var grey = Math.max(0, Math.min(255,pixelData[i]));
+                        var grey = pixelData[i] >> bitShift;
                         imageData.data[pos++] = grey;
                         imageData.data[pos++] = grey;
                         imageData.data[pos++] = grey;
@@ -77,7 +83,7 @@
             var fileType = (typeof File);
 
             if (fileType === 'undefined') {
-                return function () {};
+                return function () { };
             }
 
             if (File.prototype.slice) {
@@ -120,41 +126,45 @@
 
 <body>
 
-<div id="select" style="font-family:sans-serif">
-    <h3>Daikon &mdash; JavaScript DICOM Parser</h3>
-    <h4><a href="https://github.com/rii-mango/Daikon">https://github.com/rii-mango/Daikon</a></h4>
-    <p>Select a file: <input type="file" id="file" name="files" /></p>
-    <hr />
-</div>
+    <div id="select" style="font-family:sans-serif">
+        <h3>Daikon &mdash; JavaScript DICOM Parser</h3>
+        <h4>
+            <a href="https://github.com/rii-mango/Daikon">https://github.com/rii-mango/Daikon</a>
+        </h4>
+        <p>Select a file:
+            <input type="file" id="file" name="files" />
+        </p>
+        <hr />
+    </div>
 
-<div id="results" style="font-family:sans-serif"></div>
+    <div id="results" style="font-family:sans-serif"></div>
 
 
-<script type="text/javascript">
-    var old = console.log;
-    var logger = document.getElementById('results');
+    <script type="text/javascript">
+        var old = console.log;
+        var logger = document.getElementById('results');
 
-    console.error = console.log = function (message) {
-        var str;
+        console.error = console.log = function (message) {
+            var str;
 
-        if (typeof message == 'object') {
-            str = (JSON && JSON.stringify ? JSON.stringify(message) : message) + '<br />';
-        } else {
-            str = message + '<br />';
-        }
+            if (typeof message == 'object') {
+                str = (JSON && JSON.stringify ? JSON.stringify(message) : message) + '<br />';
+            } else {
+                str = message + '<br />';
+            }
 
-        str = str.replace(/^\s*/mg, function(x) { return new Array(++x.length).join('&nbsp;&nbsp;') });
-        str = str.replace(/(?:\r\n|\r|\n)/g, '<br />');
+            str = str.replace(/^\s*/mg, function (x) { return new Array(++x.length).join('&nbsp;&nbsp;') });
+            str = str.replace(/(?:\r\n|\r|\n)/g, '<br />');
 
-        if (str.indexOf("Private Data") != -1) {
-            logger.innerHTML += ("<span class='private'>" + str + "</span>");
-        } else {
-            logger.innerHTML += str;
-        }
-    };
+            if (str.indexOf("Private Data") != -1) {
+                logger.innerHTML += ("<span class='private'>" + str + "</span>");
+            } else {
+                logger.innerHTML += str;
+            }
+        };
 
-    document.getElementById('file').addEventListener('change', handleFileSelect, false);
-</script>
+        document.getElementById('file').addEventListener('change', handleFileSelect, false);
+    </script>
     <canvas id='canvas' width="1024" height="1024" style="position:relative; width:1024px; height:1024px;"></canvas>
 </body>
 
