@@ -16,6 +16,7 @@ var JpegDecoder = JpegDecoder || ((typeof require !== 'undefined') ? require('..
 var JpxImage = JpxImage || ((typeof require !== 'undefined') ? require('../lib/jpx.js') : null);
 var JpegLSDecoder = JpegLSDecoder || ((typeof require !== 'undefined') ? require('../lib/jpeg-ls.js') : null);
 
+var GPU = require('gpu.js');
 
 /*** Constructor ***/
 
@@ -628,6 +629,107 @@ daikon.Image.prototype.getInterpretedData = function (asArray, asObject, frameIn
     }
     
     return data;
+};
+
+/**
+ * Returns interpreted pixel data (considers datatype, byte order, data scales).
+ * @param {boolean} asArray - if true, the returned data is a JavaScript Array
+ * @param {boolean} asObject - if true, an object is returned with properties: data, min, max, minIndex, maxIndex, numCols, numRows
+ * @param {number} frameIndex - if provided, only the desired frame in a multi-frame dataset is returned
+ * @returns {Float32Array|Array|object}
+ */
+daikon.Image.prototype.render = function (frameIndex) {
+    var datatype, numBytes, numElements, dataView, data, ctr, mask, slope, intercept, min, max, value, minIndex,
+        maxIndex, littleEndian, rawValue, rawData, allFrames, elementsPerFrame, totalElements, offset, dataCtr, cols, rows;
+    allFrames = arguments.length < 3;
+    mask = daikon.Utils.createBitMask(this.getBitsAllocated() / 8, this.getBitsStored(),
+        this.getDataType() === daikon.Image.BYTE_TYPE_INTEGER_UNSIGNED);
+    datatype = this.getPixelRepresentation() ? daikon.Image.BYTE_TYPE_INTEGER : daikon.Image.BYTE_TYPE_INTEGER_UNSIGNED;
+    numBytes = this.getBitsAllocated() / 8;
+    rawData = this.getRawData();
+    totalElements = rawData.byteLength / numBytes;
+    elementsPerFrame = totalElements / this.getNumberOfFrames();
+    numElements = allFrames ? totalElements : elementsPerFrame;
+    offset = allFrames ? 0 : frameIndex * elementsPerFrame;
+    slope = this.getDataScaleSlope() || 1;
+    intercept = this.getDataScaleIntercept() || 0;
+    littleEndian = this.littleEndian;
+    cols = this.getCols();
+    rows = this.getRows();
+
+    const gpu = new GPU({ mode: 'gpu' });
+    
+    const nBytes = rows*cols*numBytes;
+    
+    var i = 0;
+    var nArrays = 4;
+    const size = Math.ceil(rows / nArrays);
+    const threeD = new Array(nArrays);
+    const bytesPerRow = cols*numBytes;
+    for (var n = 0; n < nArrays; n++) {
+        var twoD = new Array(size);
+        var last = (size * n);
+        var stop = Math.min(last + size, nBytes);
+        for (; i < stop; i++) {
+            const row = new Uint8Array(rawData, i*bytesPerRow, bytesPerRow);
+            twoD[i - last] = row;
+        }
+        threeD[n] = twoD;
+    }
+    // DEBUG:
+    const startTime = new Date().valueOf();
+    // END
+
+    const render = gpu.createKernel(function(a0, a1, a2, a3, nb, le, slope, intercept, cols, storedBits, rows) {
+        var line = (rows - this.thread.y - 1);
+        var byte1
+        var byte2
+        const pos = this.thread.x * nb;
+
+        const arraySize = Math.ceil(rows / 4);
+        const arrayNo = Math.floor(line / arraySize);
+        line = line % arraySize;
+        if (arrayNo == 3) {
+            byte1 = a3[line][pos];
+            byte2 = a3[line][pos+1];
+        }
+        else if (arrayNo == 2) {
+            byte1 = a2[line][pos];
+            byte2 = a2[line][pos+1];
+        }
+        else if (arrayNo == 1) {
+            byte1 = a1[line][pos];
+            byte2 = a1[line][pos+1];
+        }
+        else {
+            byte1 = a0[line][pos];
+            byte2 = a0[line][pos+1];
+        }
+        
+        var val = byte1 + byte2*256
+
+        val = (val * slope) + intercept;
+        // no bitshift!
+        var currentBits = storedBits;
+        while (currentBits > 8) {
+            val = val / 2;
+            currentBits--;
+        }
+
+        val = Math.min(val/255.0, 1);
+        this.color(val, val, val);
+    })
+        // .setOutput([this.getCols(), this.getRows()])
+        .setOutput([cols, rows])
+        .setGraphical(true);
+    
+    var nextTime = new Date().valueOf();
+    console.log(nextTime - startTime);
+    render(threeD[0], threeD[1], threeD[2], threeD[3], numBytes, littleEndian ? 1 : 0, slope, intercept, cols, this.getBitsStored(), rows);
+    nextTime = new Date().valueOf();
+    console.log(nextTime - startTime);
+
+    return render.getCanvas();
 };
 
 
