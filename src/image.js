@@ -632,13 +632,12 @@ daikon.Image.prototype.getInterpretedData = function (asArray, asObject, frameIn
 };
 
 /**
- * Returns interpreted pixel data (considers datatype, byte order, data scales).
- * @param {boolean} asArray - if true, the returned data is a JavaScript Array
- * @param {boolean} asObject - if true, an object is returned with properties: data, min, max, minIndex, maxIndex, numCols, numRows
- * @param {number} frameIndex - if provided, only the desired frame in a multi-frame dataset is returned
- * @returns {Float32Array|Array|object}
+ * Renders image
+ * @param {number} frameIndex - only the desired frame in a multi-frame dataset rendered
+ * @param {object} ops - { mode : ('gpu' || 'cpu')}, canvas optional output on to existing canvas
+ * @returns {canvas} - canvas object
  */
-daikon.Image.prototype.render = function (frameIndex) {
+daikon.Image.prototype.render = function (frameIndex, opts) {
     var datatype, numBytes, numElements, dataView, data, ctr, mask, slope, intercept, min, max, value, minIndex,
         maxIndex, littleEndian, rawValue, rawData, allFrames, elementsPerFrame, totalElements, offset, dataCtr, cols, rows;
     allFrames = arguments.length < 3;
@@ -657,21 +656,39 @@ daikon.Image.prototype.render = function (frameIndex) {
     cols = this.getCols();
     rows = this.getRows();
 
-    const gpu = new GPU({ mode: 'gpu' });
+    var ArrayType; 
+    if (datatype === daikon.Image.BYTE_TYPE_INTEGER) {
+        if (numBytes === 1) {
+            ArrayType = Int8Array;
+        } else if (numBytes === 2) {
+            ArrayType = Int16Array;
+        }
+    } else if (datatype === daikon.Image.BYTE_TYPE_INTEGER_UNSIGNED) {
+        if (numBytes === 1) {
+            ArrayType = Uint8Array;
+        } else if (numBytes === 2) {
+            ArrayType = Uint16Array;
+        }
+    }
+    const mode = (opts && opts.mode) || "gpu";
+    const canvas = (opts && opts.canvas) || null;
+    const gpu = new GPU({ mode: mode, canvas: canvas });
     
     const nBytes = rows*cols*numBytes;
-    
+    // need to break down into 3d arrays for large images
+    // https://github.com/gpujs/gpu.js/issues/314
     var i = 0;
-    var nArrays = 4;
+    // 4 covers > double largest image I have seen - if this is changed, insure pass in right number of parameters, and handled ok in kernel fn
+    var nArrays = 4; 
     const size = Math.ceil(rows / nArrays);
     const threeD = new Array(nArrays);
-    const bytesPerRow = cols*numBytes;
+    const bytesPerRow = cols * numBytes;
     for (var n = 0; n < nArrays; n++) {
         var twoD = new Array(size);
         var last = (size * n);
         var stop = Math.min(last + size, nBytes);
         for (; i < stop; i++) {
-            const row = new Uint8Array(rawData, i*bytesPerRow, bytesPerRow);
+            const row = new ArrayType(rawData, i * bytesPerRow, bytesPerRow / numBytes);
             twoD[i - last] = row;
         }
         threeD[n] = twoD;
@@ -680,54 +697,45 @@ daikon.Image.prototype.render = function (frameIndex) {
     const startTime = new Date().valueOf();
     // END
 
-    const render = gpu.createKernel(function(a0, a1, a2, a3, nb, le, slope, intercept, cols, storedBits, rows) {
+    const render = gpu.createKernel(function(a0, a1, a2, a3, cols, rows, slope, intercept, storedBits) {
         var line = (rows - this.thread.y - 1);
-        var byte1
-        var byte2
-        const pos = this.thread.x * nb;
+        var word
+        const pos = this.thread.x;
 
         const arraySize = Math.ceil(rows / 4);
         const arrayNo = Math.floor(line / arraySize);
         line = line % arraySize;
         if (arrayNo == 3) {
-            byte1 = a3[line][pos];
-            byte2 = a3[line][pos+1];
+            word = a3[line][pos];
         }
         else if (arrayNo == 2) {
-            byte1 = a2[line][pos];
-            byte2 = a2[line][pos+1];
+            word = a2[line][pos];
         }
         else if (arrayNo == 1) {
-            byte1 = a1[line][pos];
-            byte2 = a1[line][pos+1];
+            word = a1[line][pos];
         }
         else {
-            byte1 = a0[line][pos];
-            byte2 = a0[line][pos+1];
+            word = a0[line][pos];
         }
         
-        var val = byte1 + byte2*256
+        var val = word;
 
         val = (val * slope) + intercept;
+        
         // no bitshift!
         var currentBits = storedBits;
         while (currentBits > 8) {
             val = val / 2;
             currentBits--;
         }
+        val = (val % 256) / 255.0; // mask and set to float32 colour val
 
-        val = Math.min(val/255.0, 1);
         this.color(val, val, val);
     })
-        // .setOutput([this.getCols(), this.getRows()])
         .setOutput([cols, rows])
         .setGraphical(true);
     
-    var nextTime = new Date().valueOf();
-    console.log(nextTime - startTime);
-    render(threeD[0], threeD[1], threeD[2], threeD[3], numBytes, littleEndian ? 1 : 0, slope, intercept, cols, this.getBitsStored(), rows);
-    nextTime = new Date().valueOf();
-    console.log(nextTime - startTime);
+    render(threeD[0], threeD[1], threeD[2], threeD[3], cols, rows, slope, intercept, this.getBitsStored());
 
     return render.getCanvas();
 };
