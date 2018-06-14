@@ -9,6 +9,7 @@ var daikon = daikon || {};
 daikon.Tag = daikon.Tag || ((typeof require !== 'undefined') ? require('./tag.js') : null);
 daikon.CompressionUtils = daikon.CompressionUtils || ((typeof require !== 'undefined') ? require('./compression-utils.js') : null);
 daikon.Utils = daikon.Utils || ((typeof require !== 'undefined') ? require('./utilities.js') : null);
+daikon.GPUtils = daikon.GPUtils || ((typeof require !== 'undefined') ? require('./GPUtils.js') : null);
 daikon.RLE = daikon.RLE || ((typeof require !== 'undefined') ? require('./rle.js') : null);
 
 var jpeg = ((typeof require !== 'undefined') ? require('jpeg-lossless-decoder-js') : null);
@@ -674,66 +675,53 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
     const canvas = (opts && opts.canvas) || null;
     const gpu = new GPU({ mode: mode, canvas: canvas });
     
-    const nBytes = rows*cols*numBytes;
-    // need to break down into 3d arrays for large images
+    
+    // need to break down into chunked arrays for large images
     // https://github.com/gpujs/gpu.js/issues/314
     var i = 0;
-    // 4 covers > double largest image I have seen - if this is changed, insure pass in right number of parameters, and handled ok in kernel fn
+    // 4 covers > double largest image I have seen
+    // if this is changed, insure pass in right number of parameters, and handled ok in kernel fn
     var nArrays = 4; 
-    const size = Math.ceil(rows / nArrays);
+
+    var nSamples = this.getNumberOfSamplesPerPixel();
+    const nBytes = rows * cols * numBytes * nSamples;
+    var planar0Samples = this.getPlanarConfig() == 0? nSamples : 1;
+    const planar1Samples = this.getPlanarConfig() == 1? nSamples : 1;
+    // palette converted?
+    if (nSamples == 1 && this.getDataType() === daikon.Image.BYTE_TYPE_RGB) {
+        planar0Samples = 3;
+    }
+
+    const size = Math.ceil(rows * planar1Samples / nArrays);
     const threeD = new Array(nArrays);
-    const bytesPerRow = cols * numBytes;
+    var bytesPerRow = cols * numBytes * planar0Samples;
+    
     for (var n = 0; n < nArrays; n++) {
         var twoD = new Array(size);
         var last = (size * n);
-        var stop = Math.min(last + size, nBytes);
+        var stop = Math.min(last + size, rows * planar1Samples);
         for (; i < stop; i++) {
             const row = new ArrayType(rawData, i * bytesPerRow, bytesPerRow / numBytes);
             twoD[i - last] = row;
         }
         threeD[n] = twoD;
     }
-    // DEBUG:
-    const startTime = new Date().valueOf();
-    // END
 
-    const render = gpu.createKernel(function(a0, a1, a2, a3, cols, rows, slope, intercept, storedBits) {
-        var line = (rows - this.thread.y - 1);
-        var word
-        const pos = this.thread.x;
-
-        const arraySize = Math.ceil(rows / 4);
-        const arrayNo = Math.floor(line / arraySize);
-        line = line % arraySize;
-        if (arrayNo == 3) {
-            word = a3[line][pos];
-        }
-        else if (arrayNo == 2) {
-            word = a2[line][pos];
-        }
-        else if (arrayNo == 1) {
-            word = a1[line][pos];
+    var render;
+    
+    if (this.getDataType() === daikon.Image.BYTE_TYPE_RGB) {
+        if (this.getPlanarConfig() && nSamples === 3) {
+            // planar config 1 = RRR...GGG...BBB
+            render = daikon.GPUtils.renderRGBPlanar1Kernel(gpu, cols, rows);
         }
         else {
-            word = a0[line][pos];
+            // planar config 0 = RGBRGBRGB...
+            render = daikon.GPUtils.renderRGBPlanar0Kernel(gpu, cols, rows);
         }
-        
-        var val = word;
-
-        val = (val * slope) + intercept;
-        
-        // no bitshift!
-        var currentBits = storedBits;
-        while (currentBits > 8) {
-            val = val / 2;
-            currentBits--;
-        }
-        val = (val % 256) / 255.0; // mask and set to float32 colour val
-
-        this.color(val, val, val);
-    })
-        .setOutput([cols, rows])
-        .setGraphical(true);
+    }
+    else {
+        render = daikon.GPUtils.renderMonochromeKernel(gpu, cols, rows);
+    }
     
     render(threeD[0], threeD[1], threeD[2], threeD[3], cols, rows, slope, intercept, this.getBitsStored());
 
