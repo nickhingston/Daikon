@@ -8,42 +8,44 @@ var daikon = daikon || {};
 daikon.GPUtils = daikon.GPUtils || {};
 
 daikon.GPUtils.renderMonochromeKernel = function(gpu, cols, rows) {
-	return gpu.createKernel(function(a0, a1, a2, cols, rows, slope, intercept, storedBits) {
-        var line = (rows - this.thread.y - 1);
-        var word
-        const pos = this.thread.x;
+	// need to use string, or minification messes things up
+	// oooh for es6 `!
+	return gpu.createKernel("function(a0, a1, a2, cols, rows, slope, intercept, storedBits) {" +
+		"var line = (rows - this.thread.y - 1);" +
+		"var word;" +
+		"const pos = this.thread.x;" +
 
-        const arraySize = Math.ceil(rows / 3);
-		const arrayNo = Math.floor(line / arraySize);
+		"const arraySize = Math.ceil(rows / 3);" +
+		"const arrayNo = Math.floor(line / arraySize);" +
 		
-		line = line % arraySize;
+		"line = line % arraySize;" +
 		
-        if (arrayNo == 2) {
-            word = a2[line][pos];
-        }
-        else if (arrayNo == 1) {
-            word = a1[line][pos];
-        }
-        else {
-            word = a0[line][pos];
-        }
-        
-        var val = word;
+		"if (arrayNo == 2) {" +
+		"    word = a2[line][pos];" +
+		"}" +
+		"else if (arrayNo == 1) {" +
+		"    word = a1[line][pos];" +
+		"}" +
+		"else {" +
+		"    word = a0[line][pos];" +
+		"}" +
+		
+		"var val = word;" +
 
-        val = (val * slope) + intercept;
-        
-        // no bitshift!
-        var currentBits = storedBits;
-        while (currentBits > 8) {
-            val = val / 2;
-            currentBits--;
-        }
-        val = (val % 256) / 255.0; // mask and set to float32 colour val
+		"val = (val * slope) + intercept;" +
+		
+		// no bitshift!
+		"var currentBits = storedBits;" +
+		"while (currentBits > 8) {" +
+			"    val = val / 2;" +
+		"    currentBits--;" +
+		"}" +
+		"val = (val % 256) / 255.0;" + // mask and set to float32 colour val
 
-        this.color(val, val, val);
-    })
-        .setOutput([cols, rows])
-        .setGraphical(true);
+		"this.color(val, val, val);" +
+	"}")
+		.setOutput([cols, rows])
+		.setGraphical(true);
 }
 
 // Not used - placeholder in case of moving palette conversion to GPU... 
@@ -89,108 +91,110 @@ daikon.GPUtils.renderMonochromeKernel = function(gpu, cols, rows) {
 
 daikon.GPUtils.renderRGBPlanar0Kernel = function(gpu, cols, rows) {
 	// planar config 0 = RGBRGBRGB...
-	return gpu.createKernel(function(a0, a1, a2, cols, rows, slope, intercept, storedBits) {
-        var line = (rows - this.thread.y - 1);
-        var r, g, b;
-        const pos = this.thread.x * 3;
-
-        const arraySize = Math.ceil(rows / 3);
-		const arrayNo = Math.floor(line / arraySize);
+	return gpu.createKernel("function(a0, a1, a2, cols, rows, slope, intercept, storedBits) {" +
+		"var line = (rows - this.thread.y - 1);" +
+		"var r, g, b;" +
+		"const pos = this.thread.x * 3;" +
 		
-		line = line % arraySize;
+		"const arraySize = Math.ceil(rows / 3);" +
+		"const arrayNo = Math.floor(line / arraySize);" +
 		
-        if (arrayNo == 2) {
-            r = a2[line][pos];
-			g = a2[line][pos+1];
-			b = a2[line][pos+2];
-        }
-        else if (arrayNo == 1) {
-            r = a1[line][pos];
-			g = a1[line][pos+1];
-			b = a1[line][pos+2];
-        }
-        else {
-            r = a0[line][pos];
-			g = a0[line][pos+1];
-			b = a0[line][pos+2];
-        }
-        
-		r = (r * slope) + intercept;
-		g = (g * slope) + intercept;
-		b = (b * slope) + intercept;
-        
-        // no bitshift!
-        var currentBits = storedBits;
-        while (currentBits > 8) {
-			r = r / 2;
-			g = g / 2;
-			b = b / 2;
-            currentBits--;
-        }
-		r = (r % 256) / 255.0; 
-		g = (g % 256) / 255.0; 
-		b = (b % 256) / 255.0; 
+		"line = line % arraySize;" +
 
-        this.color(r, g, b);
-    })
-        .setOutput([cols, rows])
-        .setGraphical(true);
+		"if (arrayNo == 2) {" +
+		"   r = a2[line][pos];" +
+		"   g = a2[line][pos+1];" +
+		"   b = a2[line][pos+2];" +
+		"}" +
+		"else if (arrayNo == 1) {" +
+		"   r = a1[line][pos];" +
+		"	g = a1[line][pos+1];" +
+		"	b = a1[line][pos+2];" +
+		"}" +
+		"else {" +
+		"   r = a0[line][pos];" +
+		"	g = a0[line][pos+1];" +
+		"	b = a0[line][pos+2];" +
+		"}" +
+
+		"r = (r * slope) + intercept;" +
+		"g = (g * slope) + intercept;" +
+		"b = (b * slope) + intercept;" +
+		
+		// no bitshift!"
+		"var currentBits = storedBits;" +
+		"while (currentBits > 8) {" +
+		"   r = r / 2;" +
+		"   g = g / 2;" +
+		"   b = b / 2;" +
+		"   currentBits--;" +
+		"}" +
+		"r = (r % 256) / 255.0; " +
+		"g = (g % 256) / 255.0; " +
+		"b = (b % 256) / 255.0; " +
+
+		"this.color(r, g, b);" +
+		"}")
+		.setOutput([cols, rows])
+		.setGraphical(true);
 }
 
 daikon.GPUtils.renderRGBPlanar1Kernel = function(gpu, cols, rows) {
+	// function needed to be outside the kernel..
+	gpu.addFunction("function getWord(line, arraySize, pos) {" +
+	"	const arrayNo = Math.floor(line / arraySize);" +
+	"	line = line % arraySize;" +
+	"	var word;" +
+	"	if (arrayNo == 2) {" +
+		"		word = a2[line][pos];" +
+	"	}" +
+	"	else if (arrayNo == 1) {" +
+		"		word = a1[line][pos];" +
+	"	}" +
+	"	else {" +
+		"		word = a0[line][pos];" +
+	"	}" +
+	"	return word;" +
+	"}");
 	 // planar config 1 = RRR...GGG...BBB
-	return gpu.createKernel(function(a0, a1, a2, cols, rows, slope, intercept, storedBits) {
-		const line = (rows - this.thread.y - 1);
-        var r, g, b;
-        const pos = this.thread.x;
+	return gpu.createKernel("function(a0, a1, a2, cols, rows, slope, intercept, storedBits) {" +
 
-        const inputArraySize = Math.ceil(rows * 3 / 3);
+		"const line = (rows - this.thread.y - 1);" +
+		"var r, g, b;" +
+		"const pos = this.thread.x;" +
 		
-		const lineR = line;
-		const lineG = (line + rows);
-		const lineB = (line + rows*2);
+		"const inputArraySize = Math.ceil(rows * 3 / 3);" +
 		
-		function getWord(line, arraySize, pos) {
-			const arrayNo = Math.floor(line / arraySize);
-			line = line % arraySize;
-			var word;
-			if (arrayNo == 2) {
-				word = a2[line][pos];
-			}
-			else if (arrayNo == 1) {
-				word = a1[line][pos];
-			}
-			else {
-				word = a0[line][pos];
-			}
-			return word;
-		}
-		
-        
-		r = getWord(lineR, inputArraySize, pos);
-		g = getWord(lineG, inputArraySize, pos);
-		b = getWord(lineB, inputArraySize, pos);
+		"const lineR = line;" +
+		"const lineG = (line + rows);" +
+		"const lineB = (line + rows*2);" +
 
-        r = (r * slope) + intercept;
-		g = (g * slope) + intercept;
-		b = (b * slope) + intercept;
-        
-        // no bitshift!
-        var currentBits = storedBits;
-        while (currentBits > 8) {
-			r = r / 2;
-			g = g / 2;
-			b = b / 2;
-            currentBits--;
-        }
-		r = (r % 256) / 255.0; 
-		g = (g % 256) / 255.0; 
-		b = (b % 256) / 255.0; 
-
-        this.color(r, g, b);
-    })
-        .setOutput([cols, rows])
-        .setGraphical(true);
+		
+		
+		"r = getWord(lineR, inputArraySize, pos);" +
+		"g = getWord(lineG, inputArraySize, pos);" +
+		"b = getWord(lineB, inputArraySize, pos);" +
+		
+		"r = (r * slope) + intercept;" +
+		"g = (g * slope) + intercept;" +
+		"b = (b * slope) + intercept;" +
+		
+		// no bitshift!
+		"var currentBits = storedBits;" +
+		"while (currentBits > 8) {" +
+		"	r = r / 2;" +
+		"	g = g / 2;" +
+		"	b = b / 2;" +
+		"	currentBits--;" +
+		"}" +
+		"r = (r % 256) / 255.0; " +
+		"g = (g % 256) / 255.0; " +
+		"b = (b % 256) / 255.0; " +
+		
+		"this.color(r, g, b);" +
+		"}")
+		.setOutput([cols, rows])
+		.setGraphical(true);
 }
 
 
@@ -198,5 +202,5 @@ daikon.GPUtils.renderRGBPlanar1Kernel = function(gpu, cols, rows) {
 
 var moduleType = typeof module;
 if ((moduleType !== 'undefined') && module.exports) {
-    module.exports = daikon.GPUtils;
+	module.exports = daikon.GPUtils;
 }
