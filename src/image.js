@@ -679,9 +679,10 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
     // need to break down into chunked arrays for large images
     // https://github.com/gpujs/gpu.js/issues/314
     var i = 0;
-    // 4 covers > double largest image I have seen
+    // 3 covers pretty much double largest image I have seen
     // if this is changed, insure pass in right number of parameters, and handled ok in kernel fn
-    var nArrays = 4; 
+    // *** 4 causes problems *** alighnment?  maybe change to 6 if large image size deems this necessary
+    var nArrays = 3; 
 
     var nSamples = this.getNumberOfSamplesPerPixel();
     const nBytes = rows * cols * numBytes * nSamples;
@@ -697,9 +698,9 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
     var bytesPerRow = cols * numBytes * planar0Samples;
     
     for (var n = 0; n < nArrays; n++) {
-        var twoD = new Array(size);
         var last = (size * n);
         var stop = Math.min(last + size, rows * planar1Samples);
+        var twoD = new Array(stop - last);
         for (; i < stop; i++) {
             const row = new ArrayType(rawData, i * bytesPerRow, bytesPerRow / numBytes);
             twoD[i - last] = row;
@@ -723,7 +724,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         render = daikon.GPUtils.renderMonochromeKernel(gpu, cols, rows);
     }
     
-    render(threeD[0], threeD[1], threeD[2], threeD[3], cols, rows, slope, intercept, this.getBitsStored());
+    render(threeD[0], threeD[1], threeD[2], cols, rows, slope, intercept, this.getBitsStored());
 
     return render.getCanvas();
 };

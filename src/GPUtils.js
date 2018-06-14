@@ -8,20 +8,17 @@ var daikon = daikon || {};
 daikon.GPUtils = daikon.GPUtils || {};
 
 daikon.GPUtils.renderMonochromeKernel = function(gpu, cols, rows) {
-	return gpu.createKernel(function(a0, a1, a2, a3, cols, rows, slope, intercept, storedBits) {
+	return gpu.createKernel(function(a0, a1, a2, cols, rows, slope, intercept, storedBits) {
         var line = (rows - this.thread.y - 1);
         var word
         const pos = this.thread.x;
 
-        const arraySize = Math.ceil(rows / 4);
+        const arraySize = Math.ceil(rows / 3);
 		const arrayNo = Math.floor(line / arraySize);
 		
 		line = line % arraySize;
 		
-        if (arrayNo == 3) {
-            word = a3[line][pos];
-        }
-        else if (arrayNo == 2) {
+        if (arrayNo == 2) {
             word = a2[line][pos];
         }
         else if (arrayNo == 1) {
@@ -52,7 +49,7 @@ daikon.GPUtils.renderMonochromeKernel = function(gpu, cols, rows) {
 // Not used - placeholder in case of moving palette conversion to GPU... 
 // daikon.GPUtils.renderRGB8bitKernel = function(gpu, cols, rows) {
 // 	// 256 colour 
-// 	return gpu.createKernel(function(a0, a1, a2, a3, cols, rows, slope, intercept, storedBits) {
+// 	return gpu.createKernel(function(a0, a1, a2, cols, rows, slope, intercept, storedBits) {
 //         var line = (rows - this.thread.y - 1);
 //         var r, g, b, val;
 //         const pos = this.thread.x;
@@ -62,9 +59,6 @@ daikon.GPUtils.renderMonochromeKernel = function(gpu, cols, rows) {
 		
 // 		line = line % arraySize;
 		
-//         if (arrayNo == 3) {
-// 			val = a3[line][pos];
-//         }
 //         else if (arrayNo == 2) {
 //             val = a2[line][pos];
 //         }
@@ -95,22 +89,17 @@ daikon.GPUtils.renderMonochromeKernel = function(gpu, cols, rows) {
 
 daikon.GPUtils.renderRGBPlanar0Kernel = function(gpu, cols, rows) {
 	// planar config 0 = RGBRGBRGB...
-	return gpu.createKernel(function(a0, a1, a2, a3, cols, rows, slope, intercept, storedBits) {
+	return gpu.createKernel(function(a0, a1, a2, cols, rows, slope, intercept, storedBits) {
         var line = (rows - this.thread.y - 1);
         var r, g, b;
         const pos = this.thread.x * 3;
 
-        const arraySize = Math.ceil(rows / 4);
+        const arraySize = Math.ceil(rows / 3);
 		const arrayNo = Math.floor(line / arraySize);
 		
 		line = line % arraySize;
 		
-        if (arrayNo == 3) {
-			r = a3[line][pos];
-			g = a3[line][pos+1];
-			b = a3[line][pos+2];
-        }
-        else if (arrayNo == 2) {
+        if (arrayNo == 2) {
             r = a2[line][pos];
 			g = a2[line][pos+1];
 			b = a2[line][pos+2];
@@ -150,12 +139,12 @@ daikon.GPUtils.renderRGBPlanar0Kernel = function(gpu, cols, rows) {
 
 daikon.GPUtils.renderRGBPlanar1Kernel = function(gpu, cols, rows) {
 	 // planar config 1 = RRR...GGG...BBB
-	return gpu.createKernel(function(a0, a1, a2, a3, cols, rows, slope, intercept, storedBits) {
+	return gpu.createKernel(function(a0, a1, a2, cols, rows, slope, intercept, storedBits) {
 		const line = (rows - this.thread.y - 1);
         var r, g, b;
         const pos = this.thread.x;
 
-        const inputArraySize = Math.ceil(rows * 3 / 4);
+        const inputArraySize = Math.ceil(rows * 3 / 3);
 		
 		const lineR = line;
 		const lineG = (line + rows);
@@ -165,10 +154,7 @@ daikon.GPUtils.renderRGBPlanar1Kernel = function(gpu, cols, rows) {
 			const arrayNo = Math.floor(line / arraySize);
 			line = line % arraySize;
 			var word;
-			if (arrayNo == 3) {
-				word = a3[line][pos];
-			}
-			else if (arrayNo == 2) {
+			if (arrayNo == 2) {
 				word = a2[line][pos];
 			}
 			else if (arrayNo == 1) {
