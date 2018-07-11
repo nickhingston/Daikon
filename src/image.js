@@ -674,39 +674,8 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
     const mode = (opts && opts.mode) || "gpu";
     const canvas = (opts && opts.canvas) || null;
     const gpu = new GPU({ mode: mode, canvas: canvas });
-    
-    
-    // need to break down into chunked arrays for large images
-    // https://github.com/gpujs/gpu.js/issues/314
-    var i = 0;
-    // 3 covers pretty much double largest image I have seen
-    // if this is changed, insure pass in right number of parameters, and handled ok in kernel fn
-    // *** 4 causes problems *** alighnment?  maybe change to 6 if large image size deems this necessary
-    var nArrays = 3; 
 
     var nSamples = this.getNumberOfSamplesPerPixel();
-    const nBytes = rows * cols * numBytes * nSamples;
-    var planar0Samples = this.getPlanarConfig() == 0? nSamples : 1;
-    const planar1Samples = this.getPlanarConfig() == 1? nSamples : 1;
-    // palette converted?
-    if (nSamples == 1 && this.getDataType() === daikon.Image.BYTE_TYPE_RGB) {
-        planar0Samples = 3;
-    }
-
-    const size = Math.ceil(rows * planar1Samples / nArrays);
-    const threeD = new Array(nArrays);
-    var bytesPerRow = cols * numBytes * planar0Samples;
-    
-    for (var n = 0; n < nArrays; n++) {
-        var last = (size * n);
-        var stop = Math.min(last + size, rows * planar1Samples);
-        var twoD = new Array(stop - last);
-        for (; i < stop; i++) {
-            const row = new ArrayType(rawData, i * bytesPerRow, bytesPerRow / numBytes);
-            twoD[i - last] = row;
-        }
-        threeD[n] = twoD;
-    }
 
     var render;
     
@@ -723,8 +692,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
     else {
         render = daikon.GPUtils.renderMonochromeKernel(gpu, cols, rows);
     }
-    
-    render(threeD[0], threeD[1], threeD[2], cols, rows, slope, intercept, this.getBitsStored());
+    render(new ArrayType(rawData), cols, rows, slope, intercept, this.getBitsStored());
 
     return render.getCanvas();
 };

@@ -7,7 +7,7 @@
     "test": "tests"
   },
   "dependencies": {
-    "gpu.js": "^1.4.1",
+    "gpu.js": "git+https://github.com/nickhingston/gpu.js.git#performance",
     "jpeg-lossless-decoder-js": "git+https://github.com/rii-mango/JPEGLosslessDecoderJS.git",
     "pako": "^1.0.6"
   },
