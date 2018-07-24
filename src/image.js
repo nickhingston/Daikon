@@ -696,11 +696,13 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
             // planar config 0 = RGBRGBRGB...
             render = daikon.GPUtils.renderRGBPlanar0Kernel(gpu, cols, rows);
         }
+        // 3 colours per pixel
+        render(GPU.input(new ArrayType(rawData), [cols * 3, rows]), cols, rows, slope, intercept, this.getBitsStored());
     }
     else {
         render = daikon.GPUtils.renderMonochromeKernel(gpu, cols, rows);
+        render(GPU.input(new ArrayType(rawData), [cols , rows]), cols, rows, slope, intercept, this.getBitsStored());
     }
-    render(new ArrayType(rawData), cols, rows, slope, intercept, this.getBitsStored());
 
     return render.getCanvas();
 };
