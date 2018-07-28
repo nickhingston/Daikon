@@ -698,6 +698,18 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
     var nSamples = this.getNumberOfSamplesPerPixel();
 
     var render;
+
+    var lutShape = daikon.Image.getSingleValueSafely(this.getTag(daikon.Tag.TAG_LUT_SHAPE[0], daikon.Tag.TAG_LUT_SHAPE[1]), 0);
+    if (lutShape === "INVERSE") {
+        var maxVal = Math.pow(2, this.getBitsStored());
+        if (datatype === daikon.Image.BYTE_TYPE_INTEGER) {
+            maxVal /= 2;
+        }
+        gpu.addFunction('function getWord(data, pos) { return ' + maxVal + ' - data[pos]; }');
+    }
+    else {
+        gpu.addFunction('function getWord(data, pos) { return data[pos]; }');
+    }
     
     if (this.getDataType() === daikon.Image.BYTE_TYPE_RGB) {
         if (this.getPlanarConfig() && nSamples === 3) {

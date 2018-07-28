@@ -13,7 +13,7 @@ daikon.GPUtils.renderMonochromeKernel = function(gpu, cols, rows) {
 	return gpu.createKernel("function(data, cols, rows, slope, intercept, storedBits) {" +
 		"var pos = this.thread.x + (rows - this.thread.y) * cols;" +
 
-		"var val = data[pos];" +
+		"var val = getWord(data, pos);" +
 
 		"val = (val * slope) + intercept;" +
 		
@@ -63,9 +63,9 @@ daikon.GPUtils.renderRGBPlanar0Kernel = function(gpu, cols, rows) {
 		"var r, g, b;" +
 		"const pos = (this.thread.x * 3) + line * cols * 3;" +
 
-		"r = data[pos];" +
-		"g = data[pos+1];" +
-		"b = data[pos+2];" +
+		"r = getWord(data, pos);" +
+		"g = getWord(data, pos+1);" +
+		"b = getWord(data, pos+2);" +
 
 		"r = (r * slope) + intercept;" +
 		"g = (g * slope) + intercept;" +
@@ -101,9 +101,9 @@ daikon.GPUtils.renderRGBPlanar1Kernel = function(gpu, cols, rows) {
 		"const lineG = (line + rows);" +
 		"const lineB = (line + rows*2);" +
 
-		"r = data[lineR*cols + pos];" +
-		"g = data[lineG*cols + pos];" +
-		"b = data[lineB*cols + pos];" +
+		"r = getWord(data, lineR*cols + pos);" +
+		"g = getWord(data, lineG*cols + pos);" +
+		"b = getWord(data, lineB*cols + pos);" +
 		
 		"r = (r * slope) + intercept;" +
 		"g = (g * slope) + intercept;" +
