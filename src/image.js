@@ -691,6 +691,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
             ArrayType = Uint16Array;
         }
     }
+    const scale = (opts && opts.scale) || 1;
     const mode = (opts && opts.mode) || "gpu";
     const canvas = (opts && opts.canvas) || null;
     const gpu = new GPU({ mode: mode, canvas: canvas });
@@ -710,7 +711,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
     else {
         gpu.addFunction('function getWord(data, pos) { return data[pos]; }');
     }
-    
+
     if (this.getDataType() === daikon.Image.BYTE_TYPE_RGB) {
         if (this.getPlanarConfig() && nSamples === 3) {
             // planar config 1 = RRR...GGG...BBB
@@ -724,8 +725,46 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         render(GPU.input(new ArrayType(rawData), [cols * 3, rows]), cols, rows, slope, intercept, this.getBitsStored());
     }
     else {
-        render = daikon.GPUtils.renderMonochromeKernel(gpu, cols, rows);
-        render(GPU.input(new ArrayType(rawData), [cols , rows]), cols, rows, slope, intercept, this.getBitsStored());
+        
+        const newWidth = Math.floor(cols*scale);
+        const newHeight = Math.floor(rows*scale);
+
+        render = daikon.GPUtils.renderMonochromeKernel(gpu, newWidth, newHeight);
+        
+        // for a lot of GPUs (e.g. iOS) webGl can only handle max width or height of 4096 
+        // so break up the data into 4 inputs
+        // we will let the client decide on the scale factor...
+        const sz = [cols/2, rows/2];
+        const nElements = sz[0] * sz[1]
+        const data0 = new ArrayType(rawData, 0, nElements);
+        const data1 = new ArrayType(rawData, nElements*numBytes, nElements);
+        const data2 = new ArrayType(rawData, nElements*numBytes*2, nElements);
+        const data3 = new ArrayType(rawData, nElements*numBytes*3, nElements);
+
+        var downSample = gpu.createKernel(function(data0, data1, data2, data3, nElements, w, scale) {
+            var pos = (this.thread.x / scale) + (w / scale * this.thread.y / scale);
+            if (pos < nElements) {
+                return data0[pos]
+            } else if (pos < nElements*2) {
+                return data1[pos - nElements]
+            } else if (pos < nElements*3) {
+                return data2[pos - nElements*2]
+            } else {
+                return data3[pos - nElements*3]
+            }
+        }).setOutput([newWidth, newHeight]).setOutputToTexture(true);
+
+
+        // this seems slower?!
+        // const superKernel = gpu.combineKernels(downSample, render, function(data0, data1, data2, data3, nElements, newWidth, newHeight, scale, slope, intercept, bits) {
+        //     return render(downSample(data0, data1, data2, data3, nElements, newWidth, scale), newWidth, newHeight, slope, intercept, bits);
+        // });
+        // superKernel(data0, data1, data2, data3, nElements, newWidth, newHeight, scale, slope, intercept, this.getBitsStored());
+
+        const data = downSample(data0, data1, data2, data3, nElements, newWidth, scale);
+
+        render(data, newWidth, newHeight, slope, intercept, this.getBitsStored());
+        
     }
 
     return render.getCanvas();
