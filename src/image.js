@@ -700,13 +700,21 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
 
     var render;
 
-    var lutShape = daikon.Image.getSingleValueSafely(this.getTag(daikon.Tag.TAG_LUT_SHAPE[0], daikon.Tag.TAG_LUT_SHAPE[1]), 0);
-    if (lutShape === "INVERSE") {
-        var maxVal = Math.pow(2, this.getBitsStored());
+    // invert pixel values if INVERTED xor MONOCHROME1
+    var invert = daikon.Image.getSingleValueSafely(this.getTag(daikon.Tag.TAG_LUT_SHAPE[0], daikon.Tag.TAG_LUT_SHAPE[1]), 0) === "INVERSE";
+    invert = !invert && this.getPhotometricInterpretation() === "MONOCHROME1";
+    if (invert) {
+        var minVal = 0;
+        var maxVal = Math.pow(2, this.getBitsStored()) - 1;
         if (datatype === daikon.Image.BYTE_TYPE_INTEGER) {
             maxVal /= 2;
+            minVal = -maxVal;
         }
-        gpu.addFunction('function getWord(data, pos) { return ' + maxVal + ' - data[pos]; }');
+        gpu.addFunction('function getWord(data, pos) {\n' +
+        '  var val = ' + maxVal + '- data[pos];\n' +
+        '  if (val > ' + maxVal + ') { val = ' + minVal + ' };\n' +
+        '  if (val < ' + minVal + ') { val = ' + maxVal + ' };\n' +
+        '  return val; }');
     }
     else {
         gpu.addFunction('function getWord(data, pos) { return data[pos]; }');
@@ -736,10 +744,10 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         // we will let the client decide on the scale factor...
         const sz = [cols/2, rows/2];
         const nElements = sz[0] * sz[1]
-        const data0 = new ArrayType(rawData, 0, nElements);
-        const data1 = new ArrayType(rawData, nElements*numBytes, nElements);
-        const data2 = new ArrayType(rawData, nElements*numBytes*2, nElements);
-        const data3 = new ArrayType(rawData, nElements*numBytes*3, nElements);
+        const data0 = GPU.input(new ArrayType(rawData, 0, nElements), sz);
+        const data1 = GPU.input(new ArrayType(rawData, nElements*numBytes, nElements), sz);
+        const data2 = GPU.input(new ArrayType(rawData, nElements*numBytes*2, nElements), sz);
+        const data3 = GPU.input(new ArrayType(rawData, nElements*numBytes*3, nElements), sz);
 
         var downSample = gpu.createKernel("function(data0, data1, data2, data3, nElements, w, scale) {" +
             "var pos = (this.thread.x / scale) + (w * Math.floor(this.thread.y / scale));" +
