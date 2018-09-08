@@ -655,7 +655,7 @@ daikon.Image.prototype.getInterpretedData = function (asArray, asObject, frameIn
 /**
  * Renders image
  * @param {number} frameIndex - only the desired frame in a multi-frame dataset rendered
- * @param {object} ops - { mode : ('gpu' || 'cpu')}, canvas optional output on to existing canvas
+ * @param {object} opts - { scale : scale image multiplier }
  * @returns {canvas} - canvas object
  */
 daikon.Image.prototype.render = function (frameIndex, opts) {
@@ -692,9 +692,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         }
     }
     const scale = (opts && opts.scale) || 1;
-    const mode = (opts && opts.mode) || "gpu";
-    const canvas = (opts && opts.canvas) || null;
-    const gpu = new GPU({ mode: mode, canvas: canvas });
+    const gpu = new GPU({ mode: "gpu", canvas: canvas });
 
     var nSamples = this.getNumberOfSamplesPerPixel();
 
@@ -742,7 +740,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         const data3 = new ArrayType(rawData, nElements*numBytes*3, nElements);
 
         var downSample = gpu.createKernel("function(data0, data1, data2, data3, nElements, w, scale) {" +
-            "var pos = (this.thread.x / scale) + (w / scale * this.thread.y / scale);" +
+            "var pos = (this.thread.x / scale) + (w * Math.floor(this.thread.y / scale));" +
             "if (pos < nElements) {" +
             "    return data0[pos]" +
             "} else if (pos < nElements*2) {" +
@@ -761,7 +759,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         // });
         // superKernel(data0, data1, data2, data3, nElements, newWidth, newHeight, scale, slope, intercept, this.getBitsStored());
 
-        const data = downSample(data0, data1, data2, data3, nElements, newWidth, scale);
+        const data = downSample(data0, data1, data2, data3, nElements, cols, scale);
 
         render(data, newWidth, newHeight, slope, intercept, this.getBitsStored());
         
