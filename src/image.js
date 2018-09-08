@@ -741,18 +741,18 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         const data2 = new ArrayType(rawData, nElements*numBytes*2, nElements);
         const data3 = new ArrayType(rawData, nElements*numBytes*3, nElements);
 
-        var downSample = gpu.createKernel(function(data0, data1, data2, data3, nElements, w, scale) {
-            var pos = (this.thread.x / scale) + (w / scale * this.thread.y / scale);
-            if (pos < nElements) {
-                return data0[pos]
-            } else if (pos < nElements*2) {
-                return data1[pos - nElements]
-            } else if (pos < nElements*3) {
-                return data2[pos - nElements*2]
-            } else {
-                return data3[pos - nElements*3]
-            }
-        }).setOutput([newWidth, newHeight]).setOutputToTexture(true);
+        var downSample = gpu.createKernel("function(data0, data1, data2, data3, nElements, w, scale) {" +
+            "var pos = (this.thread.x / scale) + (w / scale * this.thread.y / scale);" +
+            "if (pos < nElements) {" +
+            "    return data0[pos]" +
+            "} else if (pos < nElements*2) {" +
+            "    return data1[pos - nElements]" +
+            "} else if (pos < nElements*3) {" +
+            "    return data2[pos - nElements*2]" +
+            "} else {" +
+            "    return data3[pos - nElements*3]" +
+            "}}"
+        ).setOutput([newWidth, newHeight]).setOutputToTexture(true);
 
 
         // this seems slower?!
