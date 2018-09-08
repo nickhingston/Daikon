@@ -692,7 +692,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         }
     }
     const scale = (opts && opts.scale) || 1;
-    const gpu = new GPU({ mode: "gpu", canvas: canvas });
+    const gpu = new GPU({ mode: "gpu" });
 
     var nSamples = this.getNumberOfSamplesPerPixel();
 
