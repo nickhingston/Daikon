@@ -745,12 +745,17 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         // for a lot of GPUs (e.g. iOS) webGl can only handle max width or height of 4096 
         // so break up the data into 4 inputs
         // we will let the client decide on the scale factor...
-        const sz = [cols/2, rows/2];
-        const nElements = sz[0] * sz[1]
+
+        // must be an even number of cols per input - TODO: possibly needs to be divisible by 4 for 32bit vals?
+        const oddCols = (cols/2 % 2);
+        const sz = [cols/2 + oddCols, rows/2];
+        const nElements = sz[0] * sz[1];
+        const szLast = [sz[0] - 4*oddCols, sz[1]];  // last input may need fewer elements
+        const nElementsLast = szLast[0] * szLast[1];
         const data0 = GPU.input(new ArrayType(rawData, 0, nElements), sz);
         const data1 = GPU.input(new ArrayType(rawData, nElements*numBytes, nElements), sz);
         const data2 = GPU.input(new ArrayType(rawData, nElements*numBytes*2, nElements), sz);
-        const data3 = GPU.input(new ArrayType(rawData, nElements*numBytes*3, nElements), sz);
+        const data3 = GPU.input(new ArrayType(rawData, nElements*numBytes*3, nElementsLast, szLast));
 
         var downSample = gpu.createKernel("function(data0, data1, data2, data3, nElements, w, scale) {" +
             "var pos = (this.thread.x / scale) + (w * Math.floor(this.thread.y / scale));" +
@@ -773,7 +778,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         // superKernel(data0, data1, data2, data3, nElements, newWidth, newHeight, scale, slope, intercept, this.getBitsStored());
 
         const data = downSample(data0, data1, data2, data3, nElements, cols, scale);
-
+        
         render(data, newWidth, newHeight, slope, intercept, this.getBitsStored());
         
     }
