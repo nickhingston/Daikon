@@ -755,7 +755,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         const data0 = GPU.input(new ArrayType(rawData, 0, nElements), sz);
         const data1 = GPU.input(new ArrayType(rawData, nElements*numBytes, nElements), sz);
         const data2 = GPU.input(new ArrayType(rawData, nElements*numBytes*2, nElements), sz);
-        const data3 = GPU.input(new ArrayType(rawData, nElements*numBytes*3, nElementsLast, szLast));
+        const data3 = GPU.input(new ArrayType(rawData, nElements*numBytes*3, nElementsLast), szLast);
 
         var downSample = gpu.createKernel("function(data0, data1, data2, data3, nElements, w, scale) {" +
             "var pos = (this.thread.x / scale) + (w * Math.floor(this.thread.y / scale));" +
