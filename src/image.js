@@ -746,11 +746,13 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         // so break up the data into 4 inputs
         // we will let the client decide on the scale factor...
 
-        // must be an even number of cols per input - TODO: possibly needs to be divisible by 4 for 32bit vals?
-        const oddCols = (cols/2 % 2);
-        const sz = [cols/2 + oddCols, rows/2];
+        // a line must be divisible by 4 (actually 2 for 16bit and 1 for 32bit)
+        // so make a line as close to cols/2 as possible
+        const lineWidth = Math.floor(cols/2) + Math.floor(cols/2)%4;
+        const totalLines = cols*rows/lineWidth;
+        const sz = [lineWidth, Math.floor(totalLines/4)];
         const nElements = sz[0] * sz[1];
-        const szLast = [sz[0] - 4*oddCols, sz[1]];  // last input may need fewer elements
+        const szLast = [lineWidth, totalLines - sz[1]*3];  // last input may need fewer elements
         const nElementsLast = szLast[0] * szLast[1];
         const data0 = GPU.input(new ArrayType(rawData, 0, nElements), sz);
         const data1 = GPU.input(new ArrayType(rawData, nElements*numBytes, nElements), sz);
