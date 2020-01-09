@@ -703,9 +703,9 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
 
     var render;
 
-    // invert pixel values if INVERTED xor MONOCHROME1
+    // invert pixel values if INVERTED or MONOCHROME1
     var invert = daikon.Image.getSingleValueSafely(this.getTag(daikon.Tag.TAG_LUT_SHAPE[0], daikon.Tag.TAG_LUT_SHAPE[1]), 0) === "INVERSE";
-    invert = !invert && this.getPhotometricInterpretation() === "MONOCHROME1";
+    invert = invert || this.getPhotometricInterpretation() === "MONOCHROME1";
     if (invert) {
         var minVal = 0;
         var maxVal = Math.pow(2, this.getBitsStored()) - 1;
