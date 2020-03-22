@@ -732,8 +732,11 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
             // planar config 0 = RGBRGBRGB...
             render = daikon.GPUtils.renderRGBPlanar0Kernel(gpu, cols, rows);
         }
+
+        var alignedCols = Math.ceil(cols/3);
+        var alignedRows = cols*rows/alignedCols;
         // 3 colours per pixel
-        render(GPU.input(new ArrayType(rawData), [cols * 3, rows]), cols, rows, slope, intercept, this.getBitsStored());
+        render(GPU.input(new ArrayType(rawData), [alignedCols * 3, alignedRows]), cols, rows, slope, intercept, this.getBitsStored());
     }
     else {
         
