@@ -734,6 +734,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         }
 
         var alignedCols = Math.ceil(cols/3);
+        alignedCols = alignedCols + Math.ceil(cols/3) % 4; // needs to be divisible by 4
         var alignedRows = cols*rows/alignedCols;
         // 3 colours per pixel
         render(GPU.input(new ArrayType(rawData), [alignedCols * 3, alignedRows]), cols, rows, slope, intercept, this.getBitsStored());

@@ -34650,7 +34650,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
             render = daikon.GPUtils.renderRGBPlanar0Kernel(gpu, cols, rows);
         }
 
-        var alignedCols = Math.ceil(cols/3);
+        var alignedCols = Math.floor(cols/3);
         var alignedRows = cols*rows/alignedCols;
         // 3 colours per pixel
         render(GPU.input(new ArrayType(rawData), [alignedCols * 3, alignedRows]), cols, rows, slope, intercept, this.getBitsStored());
