@@ -533,6 +533,10 @@ daikon.Image.prototype.getTag = function (group, element) {
     return this.tagsFlat[tagId];
 };
 
+daikon.Image.prototype.getTagValue = function (tag) {
+    return daikon.Image.getValueSafely(this.getTag(tag[0], tag[1]));
+};
+
 
 /**
  * Returns the pixel data tag.
@@ -664,8 +668,8 @@ daikon.Image.prototype.getInterpretedData = function (asArray, asObject, frameIn
  * @returns {canvas} - canvas object
  */
 daikon.Image.prototype.render = function (frameIndex, opts) {
-    var datatype, numBytes, numElements, dataView, data, ctr, mask, slope, intercept, min, max, value, minIndex,
-        maxIndex, littleEndian, rawValue, rawData, allFrames, elementsPerFrame, totalElements, offset, dataCtr, cols, rows;
+    var datatype, numBytes, numElements, mask, slope, intercept, 
+        littleEndian, rawData, allFrames, elementsPerFrame, totalElements, offset, cols, rows;
     allFrames = arguments.length < 3;
     mask = daikon.Utils.createBitMask(this.getBitsAllocated() / 8, this.getBitsStored(),
         this.getDataType() === daikon.Image.BYTE_TYPE_INTEGER_UNSIGNED);
@@ -681,6 +685,19 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
     littleEndian = this.littleEndian;
     cols = this.getCols();
     rows = this.getRows();
+
+    var maxWordValue = Math.pow(2, this.getBitsStored()) - 1;
+    var maxPixValTag = this.getTagValue(daikon.Tag.TAG_IMAGE_MAX);
+    var minPixVal = this.getTagValue(daikon.Tag.TAG_IMAGE_MIN) || 0;
+    var maxPixVal = maxPixValTag || maxWordValue;
+
+    // if no tag value but a mac image tag - we need to work out max/min vals
+    if (!maxPixValTag && this.getTag(daikon.Tag.TAG_IMAGE_MAX[0], daikon.Tag.TAG_IMAGE_MAX[1])) {
+        // slow but fixes a difficult problem easily!
+        var obj = this.getInterpretedData(false, true, frameIndex);
+        minPixVal = obj.min;
+        maxPixVal = obj.max;
+    }
 
     var ArrayType; 
     if (datatype === daikon.Image.BYTE_TYPE_INTEGER) {
@@ -704,11 +721,11 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
     var render;
 
     // invert pixel values if INVERTED or MONOCHROME1
-    var invert = daikon.Image.getSingleValueSafely(this.getTag(daikon.Tag.TAG_LUT_SHAPE[0], daikon.Tag.TAG_LUT_SHAPE[1]), 0) === "INVERSE";
+    var invert = this.getTagValue(daikon.Tag.TAG_LUT_SHAPE) === "INVERSE";
     invert = invert || this.getPhotometricInterpretation() === "MONOCHROME1";
     if (invert) {
         var minVal = 0;
-        var maxVal = Math.pow(2, this.getBitsStored()) - 1;
+        var maxVal = maxWordValue;
         if (datatype === daikon.Image.BYTE_TYPE_INTEGER) {
             maxVal /= 2;
             minVal = -maxVal;
@@ -717,10 +734,10 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         '  var val = ' + maxVal + '- data[pos];\n' +
         '  if (val > ' + maxVal + ') { val = ' + minVal + ' };\n' +
         '  if (val < ' + minVal + ') { val = ' + maxVal + ' };\n' +
-        '  return val; }');
+        '  return (val - ' + minPixVal + ')*' + maxWordValue/(maxPixVal - minPixVal) + '; }');
     }
     else {
-        gpu.addFunction('function getWord(data, pos) { return data[pos]; }');
+        gpu.addFunction('function getWord(data, pos) { return (data[pos] - ' + minPixVal + ')*' + maxWordValue/(maxPixVal - minPixVal) + '; }');
     }
 
     if (this.getDataType() === daikon.Image.BYTE_TYPE_RGB) {
