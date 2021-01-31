@@ -51494,7 +51494,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
     // so make a line as close to cols/2 as possible
 
     var lineWidth = Math.floor(cols / 2) + Math.floor(cols / 2) % 4;
-    var totalLines = Math.ceil(cols * rows / lineWidth);
+    var totalLines = Math.floor(cols * rows / lineWidth);
     var sz = [lineWidth, Math.floor(totalLines / 4)];
     var nElements = sz[0] * sz[1];
     var szLast = [lineWidth, totalLines - sz[1] * 3]; // last input may need fewer elements
