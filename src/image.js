@@ -17,7 +17,7 @@ var JpegDecoder = JpegDecoder || ((typeof require !== 'undefined') ? require('..
 var JpxImage = JpxImage || ((typeof require !== 'undefined') ? require('../lib/jpx.js') : null);
 var JpegLSDecoder = JpegLSDecoder || ((typeof require !== 'undefined') ? require('../lib/jpeg-ls.js') : null);
 
-var GPU = require('gpu.js');
+var gpujs = require('gpu.js');
 
 /*** Constructor ***/
 
@@ -714,7 +714,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         }
     }
     const scale = (opts && opts.scale) || 1;
-    const gpu = new GPU({ mode: "gpu" });
+    const gpu = new gpujs.GPU({ mode: "gpu" });
 
     var nSamples = this.getNumberOfSamplesPerPixel();
 
@@ -731,7 +731,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
             minVal = -maxVal;
         }
         gpu.addFunction('function getWord(data, pos) {\n' +
-        '  var val = ' + maxVal + '- data[pos];\n' +
+        '   val = ' + maxVal + '- data[pos];\n' +
         '  if (val > ' + maxVal + ') { val = ' + minVal + ' };\n' +
         '  if (val < ' + minVal + ') { val = ' + maxVal + ' };\n' +
         '  return (val - ' + minPixVal + ')*' + maxWordValue/(maxPixVal - minPixVal) + '; }');
@@ -754,7 +754,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         alignedCols = alignedCols + Math.ceil(cols/3) % 4; // needs to be divisible by 4
         var alignedRows = cols*rows/alignedCols;
         // 3 colours per pixel
-        render(GPU.input(new ArrayType(rawData), [alignedCols * 3, alignedRows]), cols, rows, slope, intercept, this.getBitsStored());
+        render(gpujs.input(new ArrayType(rawData), [alignedCols * 3, alignedRows]), cols, rows, slope, intercept, this.getBitsStored());
     }
     else {
         
@@ -775,13 +775,13 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         const nElements = sz[0] * sz[1];
         const szLast = [lineWidth, totalLines - sz[1]*3];  // last input may need fewer elements
         const nElementsLast = szLast[0] * szLast[1];
-        const data0 = GPU.input(new ArrayType(rawData, 0, nElements), sz);
-        const data1 = GPU.input(new ArrayType(rawData, nElements*numBytes, nElements), sz);
-        const data2 = GPU.input(new ArrayType(rawData, nElements*numBytes*2, nElements), sz);
-        const data3 = GPU.input(new ArrayType(rawData, nElements*numBytes*3, nElementsLast), szLast);
+        const data0 = gpujs.input(new ArrayType(rawData, 0, nElements), sz);
+        const data1 = gpujs.input(new ArrayType(rawData, nElements*numBytes, nElements), sz);
+        const data2 = gpujs.input(new ArrayType(rawData, nElements*numBytes*2, nElements), sz);
+        const data3 = gpujs.input(new ArrayType(rawData, nElements*numBytes*3, nElementsLast), szLast);
 
-        var downSample = gpu.createKernel("function(data0, data1, data2, data3, nElements, w, scale) {" +
-            "var pos = (this.thread.x / scale) + (w * Math.floor(this.thread.y / scale));" +
+        var downSample = gpu.createKernel("function(data0, data1, data2, data3, nElements, w, scale) {\n" +
+            "const pos = (this.thread.x / scale) + (w * Math.floor(this.thread.y / scale));\n" +
             "if (pos < nElements) {" +
             "    return data0[pos]" +
             "} else if (pos < nElements*2) {" +
@@ -791,7 +791,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
             "} else {" +
             "    return data3[pos - nElements*3]" +
             "}}"
-        ).setOutput([newWidth, newHeight]).setOutputToTexture(true);
+        ).setOutput([newWidth, newHeight]).setPipeline(true);
 
 
         // this seems slower?!
@@ -806,7 +806,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         
     }
 
-    return render.getCanvas();
+    return render.context.canvas;
 };
 
 

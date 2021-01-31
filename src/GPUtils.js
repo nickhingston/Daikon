@@ -11,14 +11,14 @@ daikon.GPUtils.renderMonochromeKernel = function(gpu, cols, rows) {
 	// need to use string, or minification messes things up
 	// oooh for es6 `!
 	return gpu.createKernel("function(data, cols, rows, slope, intercept, storedBits) {" +
-		"var pos = this.thread.x + (rows - this.thread.y) * cols;" +
+		"let pos = this.thread.x + (rows - this.thread.y) * cols;" +
 
-		"var val = getWord(data, pos);" +
+		"let val = getWord(data, pos);" +
 
 		"val = (val * slope) + intercept;" +
 		
 		// no bitshift!
-		"var currentBits = storedBits;" +
+		"let currentBits = storedBits;" +
 		"while (currentBits > 8) {" +
 			"    val = val / 2;" +
 		"    currentBits--;" +
@@ -59,20 +59,19 @@ daikon.GPUtils.renderMonochromeKernel = function(gpu, cols, rows) {
 daikon.GPUtils.renderRGBPlanar0Kernel = function(gpu, cols, rows) {
 	// planar config 0 = RGBRGBRGB...
 	return gpu.createKernel("function(data, cols, rows, slope, intercept, storedBits) {" +
-	"var line = (rows - this.thread.y - 1);" +
-		"var r, g, b;" +
+		"const line = (rows - this.thread.y - 1);" +
 		"const pos = (this.thread.x * 3) + line * cols * 3;" +
 
-		"r = getWord(data, pos);" +
-		"g = getWord(data, pos+1);" +
-		"b = getWord(data, pos+2);" +
+		"let r = getWord(data, pos);" +
+		"let g = getWord(data, pos+1);" +
+		"let b = getWord(data, pos+2);" +
 
 		"r = (r * slope) + intercept;" +
 		"g = (g * slope) + intercept;" +
 		"b = (b * slope) + intercept;" +
 		
 		// no bitshift!"
-		"var currentBits = storedBits;" +
+		"let currentBits = storedBits;" +
 		"while (currentBits > 8) {" +
 		"   r = r / 2;" +
 		"   g = g / 2;" +
@@ -94,23 +93,22 @@ daikon.GPUtils.renderRGBPlanar1Kernel = function(gpu, cols, rows) {
 	return gpu.createKernel("function(data, cols, rows, slope, intercept, storedBits) {" +
 
 		"const line = (rows - this.thread.y - 1);" +
-		"var r, g, b;" +
 		"const pos = this.thread.x;" +
 		
 		"const lineR = line;" +
 		"const lineG = (line + rows);" +
 		"const lineB = (line + rows*2);" +
 
-		"r = getWord(data, lineR*cols + pos);" +
-		"g = getWord(data, lineG*cols + pos);" +
-		"b = getWord(data, lineB*cols + pos);" +
+		"let r = getWord(data, lineR*cols + pos);" +
+		"let g = getWord(data, lineG*cols + pos);" +
+		"let b = getWord(data, lineB*cols + pos);" +
 		
 		"r = (r * slope) + intercept;" +
 		"g = (g * slope) + intercept;" +
 		"b = (b * slope) + intercept;" +
 		
 		// no bitshift!
-		"var currentBits = storedBits;" +
+		"let currentBits = storedBits;" +
 		"while (currentBits > 8) {" +
 		"	r = r / 2;" +
 		"	g = g / 2;" +
