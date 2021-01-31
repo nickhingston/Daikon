@@ -731,7 +731,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
             minVal = -maxVal;
         }
         gpu.addFunction('function getWord(data, pos) {\n' +
-        '   val = ' + maxVal + '- data[pos];\n' +
+        '  const val = ' + maxVal + '- data[pos];\n' +
         '  if (val > ' + maxVal + ') { val = ' + minVal + ' };\n' +
         '  if (val < ' + minVal + ') { val = ' + maxVal + ' };\n' +
         '  return (val - ' + minPixVal + ')*' + maxWordValue/(maxPixVal - minPixVal) + '; }');
@@ -770,7 +770,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
         // a line must be divisible by 4 (actually 2 for 16bit and 1 for 32bit)
         // so make a line as close to cols/2 as possible
         const lineWidth = Math.floor(cols/2) + Math.floor(cols/2)%4;
-        const totalLines = cols*rows/lineWidth;
+        const totalLines = Math.ceil(cols*rows/lineWidth);
         const sz = [lineWidth, Math.floor(totalLines/4)];
         const nElements = sz[0] * sz[1];
         const szLast = [lineWidth, totalLines - sz[1]*3];  // last input may need fewer elements

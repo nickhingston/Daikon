@@ -51464,7 +51464,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
       minVal = -maxVal;
     }
 
-    gpu.addFunction('function getWord(data, pos) {\n' + '   val = ' + maxVal + '- data[pos];\n' + '  if (val > ' + maxVal + ') { val = ' + minVal + ' };\n' + '  if (val < ' + minVal + ') { val = ' + maxVal + ' };\n' + '  return (val - ' + minPixVal + ')*' + maxWordValue / (maxPixVal - minPixVal) + '; }');
+    gpu.addFunction('function getWord(data, pos) {\n' + '  const val = ' + maxVal + '- data[pos];\n' + '  if (val > ' + maxVal + ') { val = ' + minVal + ' };\n' + '  if (val < ' + minVal + ') { val = ' + maxVal + ' };\n' + '  return (val - ' + minPixVal + ')*' + maxWordValue / (maxPixVal - minPixVal) + '; }');
   } else {
     gpu.addFunction('function getWord(data, pos) { return (data[pos] - ' + minPixVal + ')*' + maxWordValue / (maxPixVal - minPixVal) + '; }');
   }
@@ -51494,7 +51494,7 @@ daikon.Image.prototype.render = function (frameIndex, opts) {
     // so make a line as close to cols/2 as possible
 
     var lineWidth = Math.floor(cols / 2) + Math.floor(cols / 2) % 4;
-    var totalLines = cols * rows / lineWidth;
+    var totalLines = Math.ceil(cols * rows / lineWidth);
     var sz = [lineWidth, Math.floor(totalLines / 4)];
     var nElements = sz[0] * sz[1];
     var szLast = [lineWidth, totalLines - sz[1] * 3]; // last input may need fewer elements
